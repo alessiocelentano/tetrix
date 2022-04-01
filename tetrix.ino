@@ -28,7 +28,11 @@
 #define LEFT           1
 #define RIGHT          2
 #define DOWN           3
+#define LEFTPIN        11
+#define RIGHTPIN       12
+#define DOWNPIN        13
 #define DELAY          200
+#define INPUTDELAY     100
 #define OFF            0
 #define ON             1
 
@@ -64,15 +68,62 @@ void setup() {
 
 void loop() {
     if (isNewPieceSpawnable) {
+        deleteFullLines();
         createNewPiece();
         isNewPieceSpawnable = false;
     }
     while (currentTime - previousTime < DELAY) {
         currentTime = millis();
         getInput();
+        delay(INPUTDELAY);
     }
     previousTime = currentTime;
     fall();
+}
+
+void deleteFullLines() {
+    for (int positiony = DOWNLIMIT; positiony > UPLIMIT; --positiony) {
+        if (!isLineFull(positiony)) continue;
+        for (int positionx = LEFTLIMIT; positionx <= RIGHTLIMIT; ++positionx)
+            deletePixel(positionx, positiony);
+        dropLinesFrom(positiony);
+    }
+}
+
+bool isLineFull(int positiony) {
+    for (int positionx = LEFTLIMIT; positionx <= RIGHTLIMIT; ++positionx)
+        if (!isAnActualAndTurnedOffPixel(positionx, positiony)) return false;
+    return true;
+}
+
+bool isAnActualAndTurnedOffPixel(int positionx, int positiony) {
+    if (positionx < LEFTLIMIT || positionx > RIGHTLIMIT) return false;
+    if (positiony > DOWNLIMIT) return false;
+    if (ledStateMatrix[positionx][positiony]) return false;
+    return true;
+}
+
+void deletePixel(int positionx, int positiony) {
+    matrix.drawPixel(positiony, positionx, NOCOLOR);
+    ledStateMatrix[positionx][positiony] = 0;
+}
+
+void dropLinesFrom(int positiony) {
+    while (positiony-- > 0) {
+        for (int positionx = LEFTLIMIT; positionx <= RIGHTLIMIT; ++positionx)
+            dropPixelByOnePosition(positionx, positiony);
+    }
+}
+
+void dropPixelByOnePosition(int positionx, int positiony) {
+    // TODO: store color of pixels
+    deletePixel(positionx, positiony++);
+    drawPixel(positionx, positiony);
+}
+
+void drawPixel(int positionx, int positiony) {
+    matrix.drawPixel(positiony, positionx, colors[pieceId]);
+    ledStateMatrix[positionx][positiony] = 1;
 }
 
 void createNewPiece() {
@@ -83,20 +134,18 @@ void createNewPiece() {
 }
 
 void drawNewPiece() {
-    int currentx, currenty;
-    for (int i = 0; i < 4; i++) {
-        currentx = x + pieces[pieceId][i][0];
-        currenty = y + pieces[pieceId][i][1];
-        matrix.drawPixel(currenty, currentx, colors[pieceId]);
-        ledStateMatrix[currentx][currenty] = 1;
+    for (int i = 0; i < 4; ++i) {
+        int positionx = x + pieces[pieceId][i][0];
+        int positiony = y + pieces[pieceId][i][1];
+        drawPixel(positionx, positiony);
     }
 }
 
 void getInput() {
-    if (digitalRead(UP)) hardDrop();
-    if (digitalRead(LEFT)) moveTo(LEFT);
-    if (digitalRead(RIGHT)) moveTo(RIGHT);
-    if (digitalRead(DOWN)) moveTo(DOWN);
+    // if (digitalRead(UPPIN)) hardDrop();
+    if (digitalRead(LEFTPIN)) moveTo(LEFT);
+    if (digitalRead(RIGHTPIN)) moveTo(RIGHT);
+    if (digitalRead(DOWNPIN)) moveTo(DOWN);
 }
 
 void hardDrop() {
@@ -113,15 +162,11 @@ bool moveTo(int movement) {
 
 bool isNewPositionAvailable(int movement) {
     // TODO: add game over
-    int newx, newy;
     turnPieceLedStates(OFF);
-    for (int i = 0; i < 4; i++) {
-        newx = x + pieces[pieceId][i][0];
-        newy = y + pieces[pieceId][i][1];
-        if (movement == LEFT) --newx;
-        if (movement == RIGHT) ++newx;
-        if (movement == DOWN) ++newy;
-        if (!isPixelAvailable(newx, newy)) {
+    for (int i = 0; i < 4; ++i) {
+        int newx = calculateNewx(movement, i);
+        int newy = calculateNewy(movement, i);
+        if (!isAnActualAndTurnedOffPixel(newx, newy)) {
             turnPieceLedStates(ON);
             return false;
         }
@@ -131,35 +176,41 @@ bool isNewPositionAvailable(int movement) {
 }
 
 void turnPieceLedStates(int state) {
-    int currentx, currenty;
-    for (int i = 0; i < 4; i++) {
-        currentx = x + pieces[pieceId][i][0];
-        currenty = y + pieces[pieceId][i][1];
-        ledStateMatrix[currentx][currenty] = state;
+    /*  turn off piece leds on ledStateMatrix temporarily
+     *  in order to not collide with old piece coordinates 
+     */
+    for (int i = 0; i < 4; ++i) {
+        int positionx = x + pieces[pieceId][i][0];
+        int positiony = y + pieces[pieceId][i][1];
+        ledStateMatrix[positionx][positiony] = state;
     }
 }
 
-bool isPixelAvailable(int newx, int newy) {
-    if (ledStateMatrix[newx][newy]) return false;
-    if (newx < LEFTLIMIT || newx > RIGHTLIMIT) return false;
-    if (newy > DOWNLIMIT) return false;
-    return true;
+int calculateNewx(int movement, int index) {
+    int newx = x + pieces[pieceId][index][0];
+    if (movement == LEFT) --newx;
+    if (movement == RIGHT) ++newx;
+    return newx;
+}
+
+int calculateNewy(int movement, int index) {
+    int newy = y + pieces[pieceId][index][1];
+    if (movement == DOWN) ++newy;
+    return newy;
+}
+
+void deleteCurrentPiece() {
+    for (int i = 0; i < 4; ++i) {
+        int positionx = x + pieces[pieceId][i][0];
+        int positiony = y + pieces[pieceId][i][1];
+        deletePixel(positionx, positiony);
+    }
 }
 
 void updateCoordinates(int movement) {
     if (movement == LEFT) --x;
     if (movement == RIGHT) ++x;
     if (movement == DOWN) ++y;
-}
-
-void deleteCurrentPiece() {
-    int currentx, currenty;
-    for (int i = 0; i < 4; i++) {
-        currentx = x + pieces[pieceId][i][0];
-        currenty = y + pieces[pieceId][i][1];
-        matrix.drawPixel(currenty, currentx, NOCOLOR);
-        ledStateMatrix[currentx][currenty] = 0;
-    }
 }
 
 void fall() {
@@ -173,17 +224,10 @@ void fall() {
 /*
 void startOst() {
         int val = 500;
-        for (int i = 0; i < 12; i++) {
+        for (int i = 0; i < 12; ++i) {
             tone(PIEZO, val);
             val += 25;
             delay(500);
         }
 }
 */
-
-void debug() {
-    while (1) {
-     matrix.fillRect(1, 0, 15, 15, matrix.Color333(7, 0, 0));
-     delay(10000);
-    }
-}
