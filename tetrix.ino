@@ -17,7 +17,7 @@
 #define GREEN          matrix.Color333(0, 7, 0)
 #define PURPLE         matrix.Color333(7, 0, 7)
 #define NOCOLOR        matrix.Color333(0, 0, 0)
-
+   
 #define SPAWNX         8
 #define SPAWNY         0
 #define UPLIMIT        0
@@ -35,6 +35,8 @@
 #define INPUTDELAY     100
 #define OFF            0
 #define ON             1
+#define XCOORDINATE    0
+#define YCOORDINATE    1
 
 #define CLK            8
 #define LAT            10
@@ -44,7 +46,7 @@
 #define C              A2
 
 RGBmatrixPanel matrix(A, B, C, CLK, LAT, OE, false);
-int pieces[7][4][2] = { 
+short pieceBaseCoordinates[7][4][2] = { 
     IPIECE, SQUAREPIECE, LPIECE,
     LREVERSEDPIECE, ZPIECE,
     ZREVERSEDPIECE, TPIECE
@@ -53,11 +55,12 @@ unsigned int colors[7] = {
     LIGHTBLUE, YELLOW, ORANGE,
     BLUE, RED, GREEN, PURPLE
 };
-bool ledStateMatrix[16][32] = {0};
+bool ledStateMatrix[16][32] = {false};
+unsigned int ledColorMatrix[16][32] = {NOCOLOR};
 bool isNewPieceSpawnable = true;
-unsigned long previousTime = 0;
-unsigned long currentTime = 0;
-int pieceId;
+unsigned int previousTime = 0;
+unsigned int currentTime = 0;
+int pieceId, pieceColor;
 int x, y;
 
 void setup() {
@@ -67,6 +70,7 @@ void setup() {
 }
 
 void loop() {
+    // TODO: fix memory management
     if (isNewPieceSpawnable) {
         deleteFullLines();
         createNewPiece();
@@ -105,40 +109,56 @@ bool isAnActualAndTurnedOffPixel(int positionx, int positiony) {
 
 void deletePixel(int positionx, int positiony) {
     matrix.drawPixel(positiony, positionx, NOCOLOR);
-    ledStateMatrix[positionx][positiony] = 0;
+    ledStateMatrix[positionx][positiony] = false;
+    ledColorMatrix[positionx][positiony] = NOCOLOR;
 }
 
 void dropLinesFrom(int positiony) {
-    while (positiony-- > 0) {
-        for (int positionx = LEFTLIMIT; positionx <= RIGHTLIMIT; ++positionx)
+    while (positiony-- > UPLIMIT) {
+        for (int positionx = LEFTLIMIT; positionx <= RIGHTLIMIT; ++positionx) {
+            makePieceColorTheDroppingPixelColor(positionx, positiony);
             dropPixelByOnePosition(positionx, positiony);
+        }
     }
 }
 
+void makePieceColorTheDroppingPixelColor(int positionx, int positiony) {
+    pieceColor = ledColorMatrix[positionx][positiony];
+}
+
 void dropPixelByOnePosition(int positionx, int positiony) {
-    // TODO: store color of pixels
     deletePixel(positionx, positiony++);
     drawPixel(positionx, positiony);
 }
 
 void drawPixel(int positionx, int positiony) {
-    matrix.drawPixel(positiony, positionx, colors[pieceId]);
-    ledStateMatrix[positionx][positiony] = 1;
+    matrix.drawPixel(positiony, positionx, pieceColor);
+    ledStateMatrix[positionx][positiony] = true;
+    ledColorMatrix[positionx][positiony] = pieceColor;
 }
 
 void createNewPiece() {
     x = SPAWNX;
     y = SPAWNY;
     pieceId = rand() % 7;
+    pieceColor = colors[pieceId];
     drawNewPiece();
 }
 
 void drawNewPiece() {
-    for (int i = 0; i < 4; ++i) {
-        int positionx = x + pieces[pieceId][i][0];
-        int positiony = y + pieces[pieceId][i][1];
+    for (int piecePixelIndex = 0; piecePixelIndex < 4; ++piecePixelIndex) {
+        int positionx = getPositionx(piecePixelIndex);
+        int positiony = getPositiony(piecePixelIndex);
         drawPixel(positionx, positiony);
     }
+}
+
+int getPositionx(int piecePixelIndex) { 
+    return x + pieceBaseCoordinates[pieceId][piecePixelIndex][XCOORDINATE];
+}
+
+int getPositiony(int piecePixelIndex) {
+    return y + pieceBaseCoordinates[pieceId][piecePixelIndex][YCOORDINATE];
 }
 
 void getInput() {
@@ -163,9 +183,9 @@ bool moveTo(int movement) {
 bool isNewPositionAvailable(int movement) {
     // TODO: add game over
     turnPieceLedStates(OFF);
-    for (int i = 0; i < 4; ++i) {
-        int newx = calculateNewx(movement, i);
-        int newy = calculateNewy(movement, i);
+    for (int piecePixelIndex = 0; piecePixelIndex < 4; ++piecePixelIndex) {
+        int newx = calculateNewx(movement, piecePixelIndex);
+        int newy = calculateNewy(movement, piecePixelIndex);
         if (!isAnActualAndTurnedOffPixel(newx, newy)) {
             turnPieceLedStates(ON);
             return false;
@@ -179,30 +199,30 @@ void turnPieceLedStates(int state) {
     /*  turn off piece leds on ledStateMatrix temporarily
      *  in order to not collide with old piece coordinates 
      */
-    for (int i = 0; i < 4; ++i) {
-        int positionx = x + pieces[pieceId][i][0];
-        int positiony = y + pieces[pieceId][i][1];
+    for (int piecePixelIndex = 0; piecePixelIndex < 4; ++piecePixelIndex) {
+        int positionx = getPositionx(piecePixelIndex);
+        int positiony = getPositiony(piecePixelIndex);
         ledStateMatrix[positionx][positiony] = state;
     }
 }
 
-int calculateNewx(int movement, int index) {
-    int newx = x + pieces[pieceId][index][0];
+int calculateNewx(int movement, int piecePixelIndex) {
+    int newx = getPositionx(piecePixelIndex);
     if (movement == LEFT) --newx;
     if (movement == RIGHT) ++newx;
     return newx;
 }
 
-int calculateNewy(int movement, int index) {
-    int newy = y + pieces[pieceId][index][1];
+int calculateNewy(int movement, int piecePixelIndex) {
+    int newy = getPositiony(piecePixelIndex);
     if (movement == DOWN) ++newy;
     return newy;
 }
 
 void deleteCurrentPiece() {
-    for (int i = 0; i < 4; ++i) {
-        int positionx = x + pieces[pieceId][i][0];
-        int positiony = y + pieces[pieceId][i][1];
+    for (int piecePixelIndex = 0; piecePixelIndex < 4; ++piecePixelIndex) {
+        int positionx = getPositionx(piecePixelIndex);
+        int positiony = getPositiony(piecePixelIndex);
         deletePixel(positionx, positiony);
     }
 }
@@ -220,14 +240,3 @@ void fall() {
     }
     moveTo(DOWN);
 }
-
-/*
-void startOst() {
-        int val = 500;
-        for (int i = 0; i < 12; ++i) {
-            tone(PIEZO, val);
-            val += 25;
-            delay(500);
-        }
-}
-*/
