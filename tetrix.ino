@@ -55,13 +55,13 @@ unsigned int colors[7] = {
     LIGHTBLUE, YELLOW, ORANGE,
     BLUE, RED, GREEN, PURPLE
 };
-bool ledStateMatrix[16][32] = {false};
 unsigned int ledColorMatrix[16][32] = {NOCOLOR};
 bool isNewPieceSpawnable = true;
 unsigned int previousTime = 0;
 unsigned int currentTime = 0;
-int pieceId, pieceColor;
-int x, y;
+unsigned int pieceColor;
+char pieceId;
+char x, y;
 
 void setup() {
     matrix.begin();
@@ -103,13 +103,12 @@ bool isLineFull(int positiony) {
 bool isAnActualAndTurnedOffPixel(int positionx, int positiony) {
     if (positionx < LEFTLIMIT || positionx > RIGHTLIMIT) return false;
     if (positiony > DOWNLIMIT) return false;
-    if (ledStateMatrix[positionx][positiony]) return false;
+    if (ledColorMatrix[positionx][positiony] != NOCOLOR) return false;
     return true;
 }
 
 void deletePixel(int positionx, int positiony) {
     matrix.drawPixel(positiony, positionx, NOCOLOR);
-    ledStateMatrix[positionx][positiony] = false;
     ledColorMatrix[positionx][positiony] = NOCOLOR;
 }
 
@@ -133,7 +132,6 @@ void dropPixelByOnePosition(int positionx, int positiony) {
 
 void drawPixel(int positionx, int positiony) {
     matrix.drawPixel(positiony, positionx, pieceColor);
-    ledStateMatrix[positionx][positiony] = true;
     ledColorMatrix[positionx][positiony] = pieceColor;
 }
 
@@ -182,28 +180,13 @@ bool moveTo(int movement) {
 
 bool isNewPositionAvailable(int movement) {
     // TODO: add game over
-    turnPieceLedStates(OFF);
     for (int piecePixelIndex = 0; piecePixelIndex < 4; ++piecePixelIndex) {
         int newx = calculateNewx(movement, piecePixelIndex);
         int newy = calculateNewy(movement, piecePixelIndex);
-        if (!isAnActualAndTurnedOffPixel(newx, newy)) {
-            turnPieceLedStates(ON);
-            return false;
-        }
+        if (isACurrentPiecePixel(newx, newy)) continue;
+        if (!isAnActualAndTurnedOffPixel(newx, newy)) return false;
     }
-    turnPieceLedStates(ON);
     return true;
-}
-
-void turnPieceLedStates(int state) {
-    /*  turn off piece leds on ledStateMatrix temporarily
-     *  in order to not collide with old piece coordinates 
-     */
-    for (int piecePixelIndex = 0; piecePixelIndex < 4; ++piecePixelIndex) {
-        int positionx = getPositionx(piecePixelIndex);
-        int positiony = getPositiony(piecePixelIndex);
-        ledStateMatrix[positionx][positiony] = state;
-    }
 }
 
 int calculateNewx(int movement, int piecePixelIndex) {
@@ -217,6 +200,19 @@ int calculateNewy(int movement, int piecePixelIndex) {
     int newy = getPositiony(piecePixelIndex);
     if (movement == DOWN) ++newy;
     return newy;
+}
+
+bool isACurrentPiecePixel(int newx, int newy) {
+    /*  When this function is called ledColorMatrix is not updated yet.
+     *  isAnActualAndTurnedOffPixel would return true even if the new piece
+     *  collides with some old coordinates of the still not updated ledColorMatrix
+     */
+    for (int piecePixelIndex = 0; piecePixelIndex < 4; ++piecePixelIndex) {
+        int positionx = getPositionx(piecePixelIndex);
+        int positiony = getPositiony(piecePixelIndex);
+        if (newx == positionx && newy == positiony) return true;
+    }
+    return false;
 }
 
 void deleteCurrentPiece() {
