@@ -51,14 +51,13 @@ short pieceBaseCoordinates[7][4][2] = {
     LREVERSEDPIECE, ZPIECE,
     ZREVERSEDPIECE, TPIECE
 };
-unsigned int colors[7] = {
+unsigned short colors[7] = {
     LIGHTBLUE, YELLOW, ORANGE,
     BLUE, RED, GREEN, PURPLE
 };
-unsigned int ledColorMatrix[16][32] = {NOCOLOR};
+unsigned short ledColorMatrix[16][32] = {NOCOLOR};
 bool isNewPieceSpawnable = true;
-unsigned int previousTime = 0;
-unsigned int currentTime = 0;
+unsigned int previousFallTime = 0;
 unsigned int pieceColor;
 char pieceId;
 char x, y;
@@ -70,26 +69,23 @@ void setup() {
 }
 
 void loop() {
-    // TODO: fix memory management
     if (isNewPieceSpawnable) {
         deleteFullLines();
         createNewPiece();
         isNewPieceSpawnable = false;
     }
-    while (currentTime - previousTime < DELAY) {
-        currentTime = millis();
+    while (!isFallTimerExpired()) {
         getInput();
         delay(INPUTDELAY);
     }
-    previousTime = currentTime;
     fall();
+    previousFallTime = millis();
 }
 
 void deleteFullLines() {
     for (int positiony = DOWNLIMIT; positiony > UPLIMIT; --positiony) {
         if (!isLineFull(positiony)) continue;
-        for (int positionx = LEFTLIMIT; positionx <= RIGHTLIMIT; ++positionx)
-            deletePixel(positionx, positiony);
+        deleteLine(positiony);
         dropLinesFrom(positiony);
     }
 }
@@ -105,6 +101,11 @@ bool isAnActualAndTurnedOffPixel(int positionx, int positiony) {
     if (positiony > DOWNLIMIT) return false;
     if (ledColorMatrix[positionx][positiony] != NOCOLOR) return false;
     return true;
+}
+
+void deleteLine(int positiony) {
+    for (int positionx = LEFTLIMIT; positionx <= RIGHTLIMIT; ++positionx)
+        deletePixel(positionx, positiony);
 }
 
 void deletePixel(int positionx, int positiony) {
@@ -126,14 +127,18 @@ void makePieceColorTheDroppingPixelColor(int positionx, int positiony) {
 }
 
 void dropPixelByOnePosition(int positionx, int positiony) {
-    deletePixel(positionx, positiony++);
-    drawPixel(positionx, positiony);
+    deletePixel(positionx, positiony);
+    ledColorMatrix[positionx][positiony] = NOCOLOR;
+    drawPixel(positionx, positiony+1);
+    ledColorMatrix[positionx][positiony+1] = pieceColor;
 }
 
 void drawPixel(int positionx, int positiony) {
     matrix.drawPixel(positiony, positionx, pieceColor);
     ledColorMatrix[positionx][positiony] = pieceColor;
 }
+
+
 
 void createNewPiece() {
     x = SPAWNX;
@@ -145,18 +150,15 @@ void createNewPiece() {
 
 void drawNewPiece() {
     for (int piecePixelIndex = 0; piecePixelIndex < 4; ++piecePixelIndex) {
-        int positionx = getPositionx(piecePixelIndex);
-        int positiony = getPositiony(piecePixelIndex);
+        int positionx = x + pieceBaseCoordinates[pieceId][piecePixelIndex][XCOORDINATE];
+        int positiony = y + pieceBaseCoordinates[pieceId][piecePixelIndex][YCOORDINATE];
         drawPixel(positionx, positiony);
     }
 }
 
-int getPositionx(int piecePixelIndex) { 
-    return x + pieceBaseCoordinates[pieceId][piecePixelIndex][XCOORDINATE];
-}
-
-int getPositiony(int piecePixelIndex) {
-    return y + pieceBaseCoordinates[pieceId][piecePixelIndex][YCOORDINATE];
+bool isFallTimerExpired() {
+    int timeSinceLastFall = millis() - previousFallTime;
+    return timeSinceLastFall < DELAY;
 }
 
 void getInput() {
@@ -167,7 +169,8 @@ void getInput() {
 }
 
 void hardDrop() {
-    while (moveTo(DOWN));
+    while (moveTo(DOWN))
+        ;
 }
 
 bool moveTo(int movement) {
@@ -190,14 +193,14 @@ bool isNewPositionAvailable(int movement) {
 }
 
 int calculateNewx(int movement, int piecePixelIndex) {
-    int newx = getPositionx(piecePixelIndex);
+    int newx = x + pieceBaseCoordinates[pieceId][piecePixelIndex][XCOORDINATE];
     if (movement == LEFT) --newx;
     if (movement == RIGHT) ++newx;
     return newx;
 }
 
 int calculateNewy(int movement, int piecePixelIndex) {
-    int newy = getPositiony(piecePixelIndex);
+    int newy = y + pieceBaseCoordinates[pieceId][piecePixelIndex][YCOORDINATE];
     if (movement == DOWN) ++newy;
     return newy;
 }
@@ -208,8 +211,8 @@ bool isACurrentPiecePixel(int newx, int newy) {
      *  collides with some old coordinates of the still not updated ledColorMatrix
      */
     for (int piecePixelIndex = 0; piecePixelIndex < 4; ++piecePixelIndex) {
-        int positionx = getPositionx(piecePixelIndex);
-        int positiony = getPositiony(piecePixelIndex);
+        int positionx = x + pieceBaseCoordinates[pieceId][piecePixelIndex][XCOORDINATE];
+        int positiony = y + pieceBaseCoordinates[pieceId][piecePixelIndex][YCOORDINATE];
         if (newx == positionx && newy == positiony) return true;
     }
     return false;
@@ -217,8 +220,8 @@ bool isACurrentPiecePixel(int newx, int newy) {
 
 void deleteCurrentPiece() {
     for (int piecePixelIndex = 0; piecePixelIndex < 4; ++piecePixelIndex) {
-        int positionx = getPositionx(piecePixelIndex);
-        int positiony = getPositiony(piecePixelIndex);
+        int positionx = x + pieceBaseCoordinates[pieceId][piecePixelIndex][XCOORDINATE];
+        int positiony = y + pieceBaseCoordinates[pieceId][piecePixelIndex][YCOORDINATE];
         deletePixel(positionx, positiony);
     }
 }
