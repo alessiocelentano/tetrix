@@ -80,7 +80,7 @@ void loop() {
         if (isPositionAvailable(x, y)) drawNewPiece();
         else printGameOver();
     }
-    while ((currentTime=millis()) - previousFallTime < DELAY) {
+    while (!isFallDelayExpired()) {
         getInput();
         delay(INPUTDELAY);
     }
@@ -110,12 +110,6 @@ void deleteLine(int positiony) {
         deletePixel(positionx, positiony);
 }
 
-void deletePixel(int positionx, int positiony) {
-    unsigned int color = getColorByID(NOCOLOR);
-    matrix.drawPixel(positiony, positionx, color);
-    ledColorMatrix[positionx][positiony] = NOCOLOR;
-}
-
 void dropLinesFrom(int positiony) {
     while (positiony-- > UPLIMIT) {
         for (int positionx = LEFTLIMIT; positionx <= RIGHTLIMIT; ++positionx) {
@@ -137,84 +131,6 @@ void dropPixelByOnePosition(int positionx, int positiony) {
     ledColorMatrix[positionx][positiony+1] = colorID;
 }
 
-void drawNewPiece() {
-    for (int piecePixelIndex = 0; piecePixelIndex < 4; ++piecePixelIndex) {
-        int positionx = x + pieceBaseCoordinates[colorID][piecePixelIndex][XCOORDINATE];
-        int positiony = y + pieceBaseCoordinates[colorID][piecePixelIndex][YCOORDINATE];
-        drawPixel(positionx, positiony);
-    }
-}
-
-void drawPixel(int positionx, int positiony) {
-    matrix.drawPixel(positiony, positionx, color);
-    ledColorMatrix[positionx][positiony] = color;
-}
-
-void getInput() {
-    int movement = Serial.read();
-    if (digitalRead(UP)) hardDrop(x, y);
-    if (digitalRead(LEFT)) moveTo(x-1, y);
-    if (digitalRead(RIGHT)) moveTo(x+1, y);
-    if (digitalRead(DOWN)) moveTo(x, y+1);
-    // if (digitalRead(UPPIN)) hardDrop();
-    // if (digitalRead(LEFTPIN)) moveTo(LEFT);
-    // if (digitalRead(RIGHTPIN)) moveTo(RIGHT);
-    // if (digitalRead(DOWNPIN)) moveTo(DOWN);
-}
-
-void hardDrop(int positionx, int positiony) {
-    while (moveTo(positionx, ++positiony))
-        ;
-}
-
-bool moveTo(int positionx, int positiony) {
-    if (!isPositionAvailable(positionx, positiony)) return false;
-    deleteCurrentPiece();
-    x = positionx;
-    y = positiony;
-    drawNewPiece();
-    return true;
-}
-
-bool isPositionAvailable(int positionx, int positiony) {
-    for (int piecePixelIndex = 0; piecePixelIndex < 4; ++piecePixelIndex) {
-        int newx = positionx + pieceBaseCoordinates[colorID][piecePixelIndex][XCOORDINATE];
-        int newy = positiony + pieceBaseCoordinates[colorID][piecePixelIndex][YCOORDINATE];
-        if (!isAnActualAndTurnedOffPixel(newx, newy)) 
-            if (!isACurrentPiecePixel(newx, newy))
-                return false;
-    }
-    return true;
-}
-
-bool isACurrentPiecePixel(int newx, int newy) {
-    /*  When this function is called ledColorMatrix is not updated yet.
-     *  isAnActualAndTurnedOffPixel would return true even if the new piece
-     *  collides with some old coordinates of the still not updated ledColorMatrix
-     */
-    for (int piecePixelIndex = 0; piecePixelIndex < 4; ++piecePixelIndex) {
-        int currentx = x + pieceBaseCoordinates[colorID][piecePixelIndex][XCOORDINATE];
-        int currenty = y + pieceBaseCoordinates[colorID][piecePixelIndex][YCOORDINATE];
-        if (newx == currentx && newy == currenty) return true;
-    }
-    return false;
-}
-
-bool isAnActualAndTurnedOffPixel(int positionx, int positiony) {
-    if (positionx < LEFTLIMIT || positionx > RIGHTLIMIT) return false;
-    if (positiony > DOWNLIMIT) return false;
-    if (ledColorMatrix[positionx][positiony] != NOCOLOR) return false;
-    return true;
-}
-
-void deleteCurrentPiece() {
-    for (int piecePixelIndex = 0; piecePixelIndex < 4; ++piecePixelIndex) {
-        int positionx = x + pieceBaseCoordinates[colorID][piecePixelIndex][XCOORDINATE];
-        int positiony = y + pieceBaseCoordinates[colorID][piecePixelIndex][YCOORDINATE];
-        deletePixel(positionx, positiony);
-    }
-}
-
 void createNewPiece() {
     x = SPAWNX;
     y = SPAWNY;
@@ -231,6 +147,96 @@ unsigned int getColorByID(char color) {
     if (color == RED) return matrix.Color333(7, 0, 0);
     if (color == GREEN) return matrix.Color333(0, 7, 0);
     if (color == PURPLE) return matrix.Color333(7, 0, 7);
+}
+
+bool isPositionAvailable(int positionx, int positiony) {
+    for (int piecePixelIndex = 0; piecePixelIndex < 4; ++piecePixelIndex) {
+        int newx = positionx + pieceBaseCoordinates[colorID][piecePixelIndex][XCOORDINATE];
+        int newy = positiony + pieceBaseCoordinates[colorID][piecePixelIndex][YCOORDINATE];
+        if (!isAnActualAndTurnedOffPixel(newx, newy) && !isACurrentPiecePixel(newx, newy))
+            return false;
+    }
+    return true;
+}
+
+bool isAnActualAndTurnedOffPixel(int positionx, int positiony) {
+    if (positionx < LEFTLIMIT || positionx > RIGHTLIMIT) return false;
+    if (positiony > DOWNLIMIT) return false;
+    if (ledColorMatrix[positionx][positiony] != NOCOLOR) return false;
+    return true;
+}
+
+bool isACurrentPiecePixel(int newx, int newy) {
+    /*  When this function is called ledColorMatrix is not updated yet.
+     *  isAnActualAndTurnedOffPixel returns true even if the new piece
+     *  collides with some old coordinates of the still not updated ledColorMatrix
+     *  so we do another check
+     */
+    for (int piecePixelIndex = 0; piecePixelIndex < 4; ++piecePixelIndex) {
+        int currentx = x + pieceBaseCoordinates[colorID][piecePixelIndex][XCOORDINATE];
+        int currenty = y + pieceBaseCoordinates[colorID][piecePixelIndex][YCOORDINATE];
+        if (newx == currentx && newy == currenty) return true;
+    }
+    return false;
+}
+
+bool isFallDelayExpired() {
+    currentTime = millis();
+    int timeSinceLastFall = currentTime - previousFallTime;
+    return timeSinceLastFall < DELAY;
+}
+
+void getInput() {
+    int movement = Serial.read();
+    if (digitalRead(UP)) hardDrop(x, y);
+    if (digitalRead(LEFT)) moveTo(x-1, y);
+    if (digitalRead(RIGHT)) moveTo(x+1, y);
+    if (digitalRead(DOWN)) moveTo(x, y+1);
+}
+
+void hardDrop(int positionx, int positiony) {
+    while (moveTo(positionx, ++positiony))
+        ;
+}
+
+bool moveTo(int positionx, int positiony) {
+    if (!isPositionAvailable(positionx, positiony)) return false;
+    deleteCurrentPiece();
+    updateCoordinates(positionx, positiony);
+    drawNewPiece();
+    return true;
+}
+
+void deleteCurrentPiece() {
+    for (int piecePixelIndex = 0; piecePixelIndex < 4; ++piecePixelIndex) {
+        int positionx = x + pieceBaseCoordinates[colorID][piecePixelIndex][XCOORDINATE];
+        int positiony = y + pieceBaseCoordinates[colorID][piecePixelIndex][YCOORDINATE];
+        deletePixel(positionx, positiony);
+    }
+}
+
+void deletePixel(int positionx, int positiony) {
+    unsigned int color = getColorByID(NOCOLOR);
+    matrix.drawPixel(positiony, positionx, color);
+    ledColorMatrix[positionx][positiony] = NOCOLOR;
+}
+
+void updateCoordinates(int positionx, int positiony) {
+    x = positionx;
+    y = positiony;
+}
+
+void drawNewPiece() {
+    for (int piecePixelIndex = 0; piecePixelIndex < 4; ++piecePixelIndex) {
+        int positionx = x + pieceBaseCoordinates[colorID][piecePixelIndex][XCOORDINATE];
+        int positiony = y + pieceBaseCoordinates[colorID][piecePixelIndex][YCOORDINATE];
+        drawPixel(positionx, positiony);
+    }
+}
+
+void drawPixel(int positionx, int positiony) {
+    matrix.drawPixel(positiony, positionx, color);
+    ledColorMatrix[positionx][positiony] = color;
 }
 
 void printGameOver() {
@@ -274,7 +280,7 @@ void printGameOver() {
     matrix.drawLine(16, 6, 16, 4, letterColor);
     matrix.drawLine(18, 6, 18, 5, letterColor);
     matrix.drawLine(20, 6, 20, 4, letterColor);
-    letterColor = getColorByID(RED);  // E
+    letterColor = getColorByID(RED);  // R
     matrix.drawLine(16, 3, 16, 3, letterColor);
     matrix.drawLine(16, 2, 16, 1, letterColor);
     matrix.drawPixel(17, 1, letterColor);
@@ -283,6 +289,7 @@ void printGameOver() {
     matrix.drawPixel(20, 0, letterColor);
 }
 
+/*
 void printMatrixColors() {
     for (int positiony = UPLIMIT; positiony <= DOWNLIMIT; ++positiony) {
         for (int positionx = LEFTLIMIT; positionx <= RIGHTLIMIT; ++positionx) {
@@ -292,3 +299,6 @@ void printMatrixColors() {
         Serial.println();
     }
 }
+/*
+
+ */
