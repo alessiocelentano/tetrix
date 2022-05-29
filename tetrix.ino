@@ -22,44 +22,44 @@
 #define PURPLE        matrix.Color888(16, 0, 16)
 #define WHITE         matrix.Color888(16, 16, 16)
 
-#define NOPIECE       0
-#define I_ID          1
-#define SQUARE_ID     2
-#define REVERSED_L_ID 3
-#define L_ID          4
-#define REVERSED_Z_ID 5
-#define Z_ID          6
-#define T_ID          7
+#define NOPIECE        0
+#define I_ID           1
+#define SQUARE_ID      2
+#define REVERSED_L_ID  3
+#define L_ID           4
+#define REVERSED_Z_ID  5
+#define Z_ID           6
+#define T_ID           7
 
-#define SPAWNX        8
-#define SPAWNY        0
-#define SPAWNROTATION 0
-#define UPLIMIT       0
-#define LEFTLIMIT     0
-#define RIGHTLIMIT    15
-#define DOWNLIMIT     31
-#define FALLDELAY     200
-#define INPUTDELAY    50
-#define INPUTDELAY2  1
+#define SPAWNX         8
+#define SPAWNY         0
+#define SPAWNROTATION  0
+#define UPLIMIT        0
+#define LEFTLIMIT      0
+#define RIGHTLIMIT     15
+#define DOWNLIMIT      31
+#define FALLDELAY      200
+#define INPUTDELAY     50
+#define INPUTDELAY2    1 
 #define PLACEMENTDELAY 400
-#define MOVEMENTDELAY 300
-#define DELETIONDELAY 150
-#define LEFT          0
-#define RIGHT         1
-#define DOWN          2
-#define HARDDROP      3
-#define ROTATE        4
-#define OFF           0
-#define ON            1
-#define XCOORDINATE   0
-#define YCOORDINATE   1
+#define MOVEMENTDELAY  300
+#define DELETIONDELAY  150
+#define LEFT           0
+#define RIGHT          1
+#define DOWN           2
+#define HARDDROP       3
+#define ROTATE         4
+#define OFF            0
+#define ON             1
+#define XCOORDINATE    0
+#define YCOORDINATE    1
 
-#define CLK           8
-#define OE            9
-#define LAT           10
-#define A             A0
-#define B             A1
-#define C             A2
+#define CLK            8
+#define OE             9
+#define LAT            10
+#define A              A0
+#define B              A1
+#define C              A2
 
 RGBmatrixPanel matrix(A, B, C, CLK, LAT, OE, false);
 ArduinoNunchuk controller = ArduinoNunchuk();
