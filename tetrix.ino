@@ -1,8 +1,7 @@
-#include <time.h>
 #include <Adafruit_GFX.h>
 #include <RGBmatrixPanel.h>
 #include <Wire.h>
-#include "ArduinoNunchuk.h"
+#include <ArduinoNunchuk.h>
 
 #define I             { { -1, 0 }, { 0, 0 }, { 1, 0 }, { 2, 0 } }
 #define SQUARE        { { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 } }
