@@ -1,33 +1,45 @@
 void endGame() {
     deleteAllPieces();
     while (1) {
+        createFrame();
+        if (isRestartButtonPressed(750)) {
+            setupNewGame();
+            return;
+        }
         printGameOver();
-        unsigned long long previousTime = millis();
-        while (millis() - previousTime < 1500) {
-            controller.update();
-            if (controller.cButton || controller.zButton) {
-                setupNewGame();
-                return;
-            }
-            delay(1);
+        if (isRestartButtonPressed(1500)) {
+            setupNewGame();
+            return;
         }
     }
+}
+
+bool isRestartButtonPressed(int delaytime) {
+    unsigned long long previousTime = millis();
+    while (millis() - previousTime < delaytime) {
+        controller.update();
+        if (controller.cButton || controller.zButton) return true;
+        delay(INPUTDELAY);
+    }
+    return false;
 }
 
 void deleteAllPieces() {
     for (int positiony = UPLIMIT; positiony <= DOWNLIMIT; ++positiony)
         for (int positionx = LEFTLIMIT; positionx <= RIGHTLIMIT; ++positionx)
             if (isLedOn(positionx, positiony)) {
-                matrix.drawPixel(positiony, positionx, matrix.Color333(0, 0, 0));
+                matrix.drawPixel(positiony, positionx, NOCOLOR);
                 delay(50);
             }
 }
 
-void printGameOver() {
+void createFrame() {
     clearScreen();
     matrix.drawLine(8, 15, 8, 0, WHITE);
     matrix.drawLine(22, 15, 22, 0, WHITE);
-    delay(750);
+}
+
+void printGameOver() {
     matrix.drawLine(10, 12, 10, 14, RED);
     matrix.drawLine(11, 15, 13, 15, RED);
     matrix.drawLine(14, 14, 14, 12, RED);

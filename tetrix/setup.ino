@@ -1,18 +1,21 @@
 void setupNewGame() {
-    clearScreen();
-    clearLedColorMatrix();
     leftLock = true;
     rightLock = true;
     downLock = true;
     cButtonLock = true;
     zButtonLock = true;
+    clearScreen();
+    clearLedColorMatrix();
+    setupNewPiece();
+    createShadow();
+    drawNewPiece(x, y, color);
 }
 
 void setupNewTurn() {
-    updateLedColorMatrix();
+    addPieceToMatrix();
     deleteFullLines();
     setupNewPiece();
-    if (isPositionAvailable(SPAWNX, SPAWNY, SPAWNROTATION)) {
+    if (isPositionAvailable(SPAWNX, SPAWNY)) {
         createShadow();
         drawNewPiece(SPAWNX, SPAWNY, color);
     } else {
@@ -25,7 +28,7 @@ void setupNewPiece() {
     y = SPAWNY;
     shadowx = SPAWNX;
     shadowy = SPAWNY;
-    rotationState = 0;
+    rotationState = SPAWNROTATION;
     pieceID = (random() % 7) + 1;
     color = getColorByID(pieceID);
 }
@@ -44,11 +47,11 @@ void clearLedColorMatrix() {
     }
 }
 
-void updateLedColorMatrix() {
-    for (int piecePixelIndex = 0; piecePixelIndex < 4; ++piecePixelIndex) {
+void addPieceToMatrix() {
+    for (int pixelIndex = 0; pixelIndex < 4; ++pixelIndex) {
         int positionx, positiony;
-        getCoordinates(x, y, &positionx, &positiony, rotationState, piecePixelIndex);
-        turnOn(positionx, positiony);
+        getCoordinates(x, y, &positionx, &positiony, pixelIndex);
+        updateLedColorMatrix(positionx, positiony, pieceID);
     }
 }
 

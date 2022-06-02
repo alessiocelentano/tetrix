@@ -3,7 +3,7 @@ void getInput(int delaytime) {
     while (millis() - previousTime < delaytime) {
         controller.update();
         updatePosition();
-        delay(INPUTDELAY2);
+        delay(INPUTDELAY);
     }
 }
 
@@ -40,12 +40,12 @@ void doAction(int button) {
 }
 
 void doAdaptiveMovementTo(int button) {
-    if (isLocked(button)) {
+    if (!isLocked(button)) {
         moveTo(button);
         movementTime = millis();
-    } else if (millis() - movementTime > MOVEMENTDELAY) {
+    } else if (millis() - movementTime > TRIGGERMAXSPEED) {
         moveTo(button);
-        delay(INPUTDELAY);
+        delay(MAXSPEEDDELAY);
     }
 }
 
@@ -54,12 +54,6 @@ bool isLocked(int button) {
     if (!rightLock && button == RIGHT) return true;
     if (!downLock && button == DOWN) return true;
     return false;
-}
-
-void moveTo(int button) {
-    if (button == LEFT) move(x+1, y);
-    if (button == RIGHT) move(x-1, y);
-    if (button == DOWN) move(x, y+1);
 }
 
 void lockButton(int button) {
@@ -78,8 +72,14 @@ void unlockButton(int button) {
     if (button == ROTATE) zButtonLock = false;
 }
 
+void moveTo(int button) {
+    if (button == LEFT) move(x+1, y);
+    if (button == RIGHT) move(x-1, y);
+    if (button == DOWN) move(x, y+1);
+}
+
 bool move(int positionx, int positiony) {
-    if (!isPositionAvailable(positionx, positiony, rotationState)) return false;
+    if (!isPositionAvailable(positionx, positiony)) return false;
     deleteCurrentPiece();
     deleteShadow();
     x = positionx;
@@ -96,10 +96,15 @@ void hardDrop(int positionx, int positiony) {
 
 void rotate() {
     if (pieceID == SQUARE_ID) return;
-    if (!isPositionAvailable(x, y, rotationState+1)) return;
-    deleteCurrentPiece();
-    deleteShadow();
     ++rotationState;
-    createShadow();
-    drawNewPiece(x, y, color);
+    if (isPositionAvailable(x, y)) {
+        --rotationState;
+        deleteCurrentPiece();
+        deleteShadow();
+        ++rotationState;
+        createShadow();
+        drawNewPiece(x, y, color);
+        return;
+    }
+    --rotationState;
 }
